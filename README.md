@@ -24,3 +24,9 @@ Scan the QR code with the **Expo Go** app on your phone (shake detection needs a
 - `src/components/DieView.tsx` — a single die with pips, lock state and spin animation
 - `src/hooks/useShake.ts` — accelerometer-based shake detection (`expo-sensors`)
 - `src/dice.ts` — dice state helpers
+
+## Getting an APK
+
+Every push to `main` runs the **Build Android APK** GitHub Actions workflow (you can also start it manually from the *Actions* tab). When it finishes, download the `LiarDice-apk` artifact from the run page, unzip it and install the `.apk` on your Android phone (allow "install unknown apps" when asked).
+
+The APK is signed with the debug key, so it is for testing only — not for the Play Store.
