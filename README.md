@@ -6,7 +6,8 @@ A simple dice app for iOS and Android, built with Expo (React Native).
 
 - **Add / remove dice** with the `+` / `−` buttons (1–12 dice).
 - **Roll** by pressing the *Roll* button **or by shaking the phone**.
-- **Lock a die** by tapping it — locked dice turn yellow and keep their value on the next roll. Tap again to unlock, or use *Unlock all*.
+- **Lock** button locks all dice at once — they keep their values and can't be rolled (by button or shake) until you press *Unlock*.
+- Each number has its own pip color — a **1 is red**.
 - Running total, roll animation and haptic feedback.
 
 ## Running it
@@ -21,7 +22,7 @@ Scan the QR code with the **Expo Go** app on your phone (shake detection needs a
 ## Project layout
 
 - `App.tsx` — main screen (dice count, board, roll / unlock buttons)
-- `src/components/DieView.tsx` — a single die with pips, lock state and spin animation
+- `src/components/DieView.tsx` — a single die with colored pips, lock state and spin animation
 - `src/hooks/useShake.ts` — accelerometer-based shake detection (`expo-sensors`)
 - `src/dice.ts` — dice state helpers
 

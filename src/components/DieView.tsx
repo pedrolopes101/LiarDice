@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 
 // Pip positions on a 3x3 grid (row, col) for each face.
 const PIPS: Record<number, [number, number][]> = {
@@ -11,15 +11,24 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[0, 0], [0, 2], [1, 0], [1, 2], [2, 0], [2, 2]],
 };
 
+// Pip color for each face: 1 is red, every other number has its own color.
+const PIP_COLORS: Record<number, string> = {
+  1: '#d32f2f',
+  2: '#1565c0',
+  3: '#2e7d32',
+  4: '#6a1b9a',
+  5: '#ef6c00',
+  6: '#212121',
+};
+
 type Props = {
   value: number;
   locked: boolean;
   rolling: boolean;
   size: number;
-  onPress: () => void;
 };
 
-export function DieView({ value, locked, rolling, size, onPress }: Props) {
+export function DieView({ value, locked, rolling, size }: Props) {
   const spin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -35,12 +44,7 @@ export function DieView({ value, locked, rolling, size, onPress }: Props) {
   const cell = size / 3;
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Die showing ${value}, ${locked ? 'locked' : 'unlocked'}`}
-      accessibilityHint="Tap to lock or unlock this die"
-    >
+    <View accessible accessibilityLabel={`Die showing ${value}${locked ? ', locked' : ''}`}>
       <Animated.View
         style={[
           styles.die,
@@ -54,8 +58,8 @@ export function DieView({ value, locked, rolling, size, onPress }: Props) {
             key={i}
             style={[
               styles.pip,
-              locked && styles.lockedPip,
               {
+                backgroundColor: PIP_COLORS[value],
                 width: pip,
                 height: pip,
                 borderRadius: pip / 2,
@@ -67,7 +71,7 @@ export function DieView({ value, locked, rolling, size, onPress }: Props) {
         ))}
       </Animated.View>
       {locked && <Text style={styles.lockBadge}>🔒</Text>}
-    </Pressable>
+    </View>
   );
 }
 
@@ -83,16 +87,11 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   locked: {
-    backgroundColor: '#ffd54f',
-    borderColor: '#f57f17',
-    borderWidth: 3,
+    borderColor: '#ffca28',
+    borderWidth: 4,
   },
   pip: {
     position: 'absolute',
-    backgroundColor: '#1b1b1b',
-  },
-  lockedPip: {
-    backgroundColor: '#5d2a00',
   },
   lockBadge: {
     position: 'absolute',
