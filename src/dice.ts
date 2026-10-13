@@ -1,7 +1,6 @@
 export type Die = {
   id: number;
   value: number;
-  locked: boolean;
 };
 
 export const MIN_DICE = 1;
@@ -14,14 +13,13 @@ export function randomFace(): number {
 }
 
 export function createDie(): Die {
-  return { id: nextId++, value: randomFace(), locked: false };
+  return { id: nextId++, value: randomFace() };
 }
 
 export function createDice(count: number): Die[] {
   return Array.from({ length: count }, createDie);
 }
 
-/** Re-rolls every die that isn't locked. */
-export function rollUnlocked(dice: Die[]): Die[] {
-  return dice.map((d) => (d.locked ? d : { ...d, value: randomFace() }));
+export function rollAll(dice: Die[]): Die[] {
+  return dice.map((d) => ({ ...d, value: randomFace() }));
 }

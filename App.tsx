@@ -2,41 +2,50 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DieView } from './src/components/DieView';
 import { useShake } from './src/hooks/useShake';
-import { createDice, createDie, Die, MAX_DICE, MIN_DICE, randomFace, rollUnlocked } from './src/dice';
+import { createDice, createDie, Die, MAX_DICE, MIN_DICE, rollAll } from './src/dice';
 
 const ROLL_DURATION_MS = 600;
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <DiceScreen />
+    </SafeAreaProvider>
+  );
+}
+
+function DiceScreen() {
+  const insets = useSafeAreaInsets();
   const [dice, setDice] = useState<Die[]>(() => createDice(5));
   const [rolling, setRolling] = useState(false);
+  const [locked, setLocked] = useState(false);
   const shuffleTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const { width } = useWindowDimensions();
 
-  const allLocked = dice.every((d) => d.locked);
-  const anyLocked = dice.some((d) => d.locked);
   const total = dice.reduce((sum, d) => sum + d.value, 0);
   const dieSize = Math.min(90, (width - 48) / 3 - 16);
 
   const roll = useCallback(() => {
-    if (rolling || allLocked) return;
+    if (rolling || locked) return;
     setRolling(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
     // Flicker random faces while the dice spin, then settle on the final roll.
     shuffleTimer.current = setInterval(() => {
-      setDice((prev) => prev.map((d) => (d.locked ? d : { ...d, value: randomFace() })));
+      setDice(rollAll);
     }, 80);
 
     setTimeout(() => {
       if (shuffleTimer.current) clearInterval(shuffleTimer.current);
-      setDice((prev) => rollUnlocked(prev));
+      setDice(rollAll);
       setRolling(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }, ROLL_DURATION_MS);
-  }, [rolling, allLocked]);
+  }, [rolling, locked]);
 
   useEffect(() => () => {
     if (shuffleTimer.current) clearInterval(shuffleTimer.current);
@@ -44,28 +53,26 @@ export default function App() {
 
   useShake(roll);
 
-  const toggleLock = (id: number) => {
-    if (rolling) return;
+  const toggleLock = () => {
     Haptics.selectionAsync().catch(() => {});
-    setDice((prev) => prev.map((d) => (d.id === id ? { ...d, locked: !d.locked } : d)));
+    setLocked((l) => !l);
   };
 
   const addDie = () => setDice((prev) => (prev.length < MAX_DICE ? [...prev, createDie()] : prev));
   const removeDie = () => setDice((prev) => (prev.length > MIN_DICE ? prev.slice(0, -1) : prev));
-  const unlockAll = () => setDice((prev) => prev.map((d) => ({ ...d, locked: false })));
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
       <StatusBar style="light" />
 
       <Text style={styles.title}>Dice</Text>
 
       <View style={styles.counter}>
-        <CounterButton label="−" onPress={removeDie} disabled={rolling || dice.length <= MIN_DICE} />
+        <CounterButton label="−" onPress={removeDie} disabled={rolling || locked || dice.length <= MIN_DICE} />
         <Text style={styles.count}>
           {dice.length} {dice.length === 1 ? 'die' : 'dice'}
         </Text>
-        <CounterButton label="+" onPress={addDie} disabled={rolling || dice.length >= MAX_DICE} />
+        <CounterButton label="+" onPress={addDie} disabled={rolling || locked || dice.length >= MAX_DICE} />
       </View>
 
       <View style={styles.board}>
@@ -73,35 +80,43 @@ export default function App() {
           <DieView
             key={d.id}
             value={d.value}
-            locked={d.locked}
+            locked={locked}
             rolling={rolling}
             size={dieSize}
-            onPress={() => toggleLock(d.id)}
           />
         ))}
       </View>
 
       <Text style={styles.total}>Total: {rolling ? '…' : total}</Text>
-      <Text style={styles.hint}>Tap a die to lock it · Shake the phone to roll</Text>
+      <Text style={styles.hint}>{locked ? 'Dice locked · Unlock to roll again' : 'Shake the phone or press Roll'}</Text>
 
       <View style={styles.actions}>
         <Pressable
-          style={[styles.secondaryButton, !anyLocked && styles.disabled]}
-          onPress={unlockAll}
-          disabled={!anyLocked || rolling}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            locked && styles.lockActive,
+            pressed && styles.pressed,
+            rolling && styles.disabled,
+          ]}
+          onPress={toggleLock}
+          disabled={rolling}
+          accessibilityRole="button"
+          accessibilityLabel={locked ? 'Unlock all dice' : 'Lock all dice'}
         >
-          <Text style={styles.secondaryText}>Unlock all</Text>
+          <Text style={[styles.secondaryText, locked && styles.lockActiveText]}>
+            {locked ? '🔓 Unlock' : '🔒 Lock'}
+          </Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [
             styles.rollButton,
             pressed && styles.pressed,
-            (allLocked || rolling) && styles.disabled,
+            (locked || rolling) && styles.disabled,
           ]}
           onPress={roll}
-          disabled={allLocked || rolling}
+          disabled={locked || rolling}
         >
-          <Text style={styles.rollText}>{allLocked ? 'All locked' : 'Roll'}</Text>
+          <Text style={styles.rollText}>{locked ? 'Locked' : 'Roll'}</Text>
         </Pressable>
       </View>
     </View>
@@ -127,8 +142,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0b5d3b',
     alignItems: 'center',
-    paddingTop: 70,
-    paddingBottom: 40,
     paddingHorizontal: 24,
   },
   title: { color: '#fff', fontSize: 34, fontWeight: '800', letterSpacing: 1 },
@@ -164,6 +177,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  lockActive: { backgroundColor: '#ffca28', borderColor: '#ffca28' },
+  lockActiveText: { color: '#3e2700' },
   rollButton: {
     flex: 2,
     paddingVertical: 18,
