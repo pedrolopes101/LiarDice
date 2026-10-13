@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DieView } from './src/components/DieView';
 import { useShake } from './src/hooks/useShake';
@@ -10,6 +11,15 @@ import { createDice, createDie, Die, MAX_DICE, MIN_DICE, rollAll } from './src/d
 const ROLL_DURATION_MS = 600;
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <DiceScreen />
+    </SafeAreaProvider>
+  );
+}
+
+function DiceScreen() {
+  const insets = useSafeAreaInsets();
   const [dice, setDice] = useState<Die[]>(() => createDice(5));
   const [rolling, setRolling] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -52,7 +62,7 @@ export default function App() {
   const removeDie = () => setDice((prev) => (prev.length > MIN_DICE ? prev.slice(0, -1) : prev));
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
       <StatusBar style="light" />
 
       <Text style={styles.title}>Dice</Text>
@@ -132,8 +142,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0b5d3b',
     alignItems: 'center',
-    paddingTop: 70,
-    paddingBottom: 40,
     paddingHorizontal: 24,
   },
   title: { color: '#fff', fontSize: 34, fontWeight: '800', letterSpacing: 1 },

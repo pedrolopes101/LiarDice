@@ -21,6 +21,9 @@ const PIP_COLORS: Record<number, string> = {
   6: '#212121',
 };
 
+// Same width locked or not, so the pips never shift when the die is locked.
+const BORDER = 3;
+
 type Props = {
   value: number;
   locked: boolean;
@@ -40,8 +43,10 @@ export function DieView({ value, locked, rolling, size }: Props) {
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '720deg'] });
   const scale = spin.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.8, 1] });
 
-  const pip = size * 0.18;
-  const cell = size / 3;
+  // Pips are positioned inside the border, so lay them out on the inner area.
+  const inner = size - BORDER * 2;
+  const pip = inner * 0.18;
+  const cell = inner / 3;
 
   return (
     <View accessible accessibilityLabel={`Die showing ${value}${locked ? ', locked' : ''}`}>
@@ -78,7 +83,7 @@ export function DieView({ value, locked, rolling, size }: Props) {
 const styles = StyleSheet.create({
   die: {
     backgroundColor: '#fdfdfd',
-    borderWidth: 2,
+    borderWidth: BORDER,
     borderColor: '#d0d0d0',
     shadowColor: '#000',
     shadowOpacity: 0.3,
@@ -88,7 +93,6 @@ const styles = StyleSheet.create({
   },
   locked: {
     borderColor: '#ffca28',
-    borderWidth: 4,
   },
   pip: {
     position: 'absolute',
