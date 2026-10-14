@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
+import { useAudioPlayer } from 'expo-audio';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DieView } from './src/components/DieView';
@@ -23,6 +24,7 @@ function DiceScreen() {
   const [dice, setDice] = useState<Die[]>(() => createDice(5));
   const [rolling, setRolling] = useState(false);
   const [locked, setLocked] = useState(false);
+  const rollSound = useAudioPlayer(require('./assets/sounds/dice-roll.mp3'));
   const shuffleTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const { width } = useWindowDimensions();
 
@@ -33,6 +35,8 @@ function DiceScreen() {
     if (rolling || locked) return;
     setRolling(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    // Rewind first so back-to-back rolls replay the sound from the start.
+    rollSound.seekTo(0).then(() => rollSound.play()).catch(() => {});
 
     // Flicker random faces while the dice spin, then settle on the final roll.
     shuffleTimer.current = setInterval(() => {
@@ -45,7 +49,7 @@ function DiceScreen() {
       setRolling(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }, ROLL_DURATION_MS);
-  }, [rolling, locked]);
+  }, [rolling, locked, rollSound]);
 
   useEffect(() => () => {
     if (shuffleTimer.current) clearInterval(shuffleTimer.current);
