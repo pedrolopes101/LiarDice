@@ -75,16 +75,20 @@ function DiceScreen() {
         <CounterButton label="+" onPress={addDie} disabled={rolling || locked || dice.length >= MAX_DICE} />
       </View>
 
+      {/* The outer view fills the free space and centers the dice row in it,
+          whatever the number of dice. */}
       <View style={styles.board}>
-        {dice.map((d) => (
-          <DieView
-            key={d.id}
-            value={d.value}
-            locked={locked}
-            rolling={rolling}
-            size={dieSize}
-          />
-        ))}
+        <View style={styles.diceRow}>
+          {dice.map((d) => (
+            <DieView
+              key={d.id}
+              value={d.value}
+              locked={locked}
+              rolling={rolling}
+              size={dieSize}
+            />
+          ))}
+        </View>
       </View>
 
       <Text style={styles.total}>Total: {rolling ? '…' : total}</Text>
@@ -158,12 +162,15 @@ const styles = StyleSheet.create({
   count: { color: '#fff', fontSize: 20, fontWeight: '600', minWidth: 90, textAlign: 'center' },
   board: {
     flex: 1,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    marginVertical: 16,
+  },
+  diceRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    alignContent: 'center',
     gap: 20,
-    width: '100%',
   },
   total: { color: '#fff', fontSize: 22, fontWeight: '700' },
   hint: { color: 'rgba(255,255,255,0.7)', fontSize: 14, marginTop: 6, marginBottom: 20 },
