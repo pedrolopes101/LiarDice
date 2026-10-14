@@ -1,5 +1,10 @@
 """Draws the app icon set into assets/: the brown dice cup from the app, on the
-green felt, with a 3D die (red 1 on top) in front of it.
+green felt, with the Noto Emoji game die (🎲) in front of it.
+
+The die comes from assets/source/noto-game-die.png, rendered from
+assets/source/noto-game-die.svg (Noto Emoji, Copyright Google LLC, Apache
+License 2.0). To re-render the PNG, open the SVG in a browser at 1024x1024 with
+a transparent background and save it.
 
 Run with:  python3 scripts/make-icons.py   (needs Pillow and numpy)
 """
@@ -12,69 +17,22 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 GREEN = (11, 93, 59, 255)
 CUP = (93, 58, 26, 255)
 CUP_RIM = (62, 37, 16, 255)
-RED = (229, 57, 53, 255)
-PIP = (40, 40, 40, 255)
-# Lit top, mid-gray left side, darker right side.
-FACE_SHADES = {"top": (252, 252, 252, 255), "left": (226, 226, 226, 255), "right": (196, 196, 196, 255)}
 SS = 4  # supersampling factor for smooth edges
 
-PIPS = {
-    1: [(0.5, 0.5)],
-    2: [(0.25, 0.25), (0.75, 0.75)],
-    3: [(0.25, 0.25), (0.5, 0.5), (0.75, 0.75)],
-}
-
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
+DIE = Image.open(ASSETS / "source/noto-game-die.png").convert("RGBA")
+DIE = DIE.crop(DIE.getbbox())
 
 
-def face_square(size: int, face: int, fill, pip_color, mono: bool) -> Image.Image:
-    """A flat die face. In mono mode the face is inset (so edges show as gaps)
-    and the pips are holes."""
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    inset = size * 0.06 if mono else 0
-    d.rounded_rectangle((inset, inset, size - 1 - inset, size - 1 - inset), size * 0.18, fill=fill)
-    pip = size * (0.24 if face == 1 else 0.17)
-    for px, py in PIPS[face]:
-        x, y = px * size - pip / 2, py * size - pip / 2
-        d.ellipse((x, y, x + pip, y + pip), fill=(0, 0, 0, 0) if mono else pip_color)
-    return img
-
-
-def warp(face: Image.Image, canvas_size: int, origin, u, v) -> Image.Image:
-    """Maps the square `face` onto the parallelogram origin + s*u + t*v."""
-    n = face.width
-    m = np.array([[u[0], v[0]], [u[1], v[1]]]) / n
-    inv = np.linalg.inv(m)
-    a, b = inv[0]
-    d, e = inv[1]
-    c = -(a * origin[0] + b * origin[1])
-    f = -(d * origin[0] + e * origin[1])
-    return face.transform((canvas_size, canvas_size), Image.AFFINE, (a, b, c, d, e, f), resample=Image.BICUBIC)
-
-
-def die_3d(canvas_size: int, center, edge: float, mono: bool) -> Image.Image:
-    """An isometric die: 1 on top, 2 on the left side, 3 on the right side."""
-    cx, cy = center
-    cos30, sin30 = math.cos(math.radians(30)), 0.5
-    # M is the front corner where the three visible faces meet.
-    m = (cx, cy + edge * 0.0)
-    ul = (-edge * cos30, -edge * sin30)
-    ur = (edge * cos30, -edge * sin30)
-    down = (0, edge)
-    tex = 512
-    white = (255, 255, 255, 255)
-
-    faces = [
-        ("top", 1, RED, m, ul, ur),
-        ("left", 2, PIP, (m[0] + ul[0], m[1] + ul[1]), (-ul[0], -ul[1]), down),
-        ("right", 3, PIP, m, ur, down),
-    ]
-    out = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
-    for name, value, pip_color, origin, u, v in faces:
-        fill = white if mono else FACE_SHADES[name]
-        out.alpha_composite(warp(face_square(tex, value, fill, pip_color, mono), canvas_size, origin, u, v))
-    return out
+def die_image(width: int, mono: bool) -> Image.Image:
+    """The die scaled to `width`. In mono mode it is white, with the pips as holes."""
+    die = DIE.resize((width, round(DIE.height * width / DIE.width)), Image.LANCZOS)
+    if not mono:
+        return die
+    light = die.convert("L").point(lambda v: 255 if v > 120 else 0)
+    white = Image.new("RGBA", die.size, (255, 255, 255, 255))
+    white.putalpha(ImageChops.multiply(die.getchannel("A"), light))
+    return white
 
 
 def cup_mask(size: int, box) -> Image.Image:
@@ -111,29 +69,27 @@ def logo(size: int, mono: bool = False) -> Image.Image:
     rim = big * 0.035
     inner = cup_mask(big, (box[0] + rim, box[1] + rim, box[2] - rim, box[3] - rim))
 
-    edge = big * 0.27
-    die = die_3d(big, (big / 2, big * 0.53), edge, mono)
+    die = die_image(int(big * 0.5), mono)
+    die_pos = ((big - die.width) // 2, int(big * 0.5 - die.height / 2))
+    die_layer = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    die_layer.alpha_composite(die, die_pos)
 
     if mono:
-        # White cup with the die cut out, then the die's faces drawn back in.
+        # White cup with a gap cut around the die, so the die reads on its own.
         out.paste((255, 255, 255, 255), (0, 0), mask)
-        die_shape = die.getchannel("A").point(lambda a: 255 if a else 0).filter(ImageFilter.MaxFilter(9))
-        hull = Image.new("L", (big, big), 0)
-        cx, cy = big / 2, big * 0.53
-        cos30 = math.cos(math.radians(30))
-        hex_pts = [(cx, cy + edge), (cx - edge * cos30, cy + edge / 2), (cx - edge * cos30, cy - edge / 2),
-                   (cx, cy - edge), (cx + edge * cos30, cy - edge / 2), (cx + edge * cos30, cy + edge / 2)]
-        ImageDraw.Draw(hull).polygon(hex_pts, fill=255)
-        hull = hull.filter(ImageFilter.MaxFilter(2 * int(big * 0.012) + 1))
-        out.putalpha(ImageChops.subtract(out.getchannel("A"), ImageChops.lighter(hull, die_shape)))
-        out.alpha_composite(die)
+        outline = Image.new("L", (big, big), 0)
+        outline.paste(DIE.getchannel("A").resize(die.size), die_pos)
+        # Grow the die outline by a few percent (at quarter size, for speed), then re-sharpen it.
+        small = outline.resize((big // 4, big // 4), Image.BILINEAR).filter(ImageFilter.MaxFilter(9))
+        gap = small.resize((big, big), Image.BILINEAR).point(lambda v: 255 if v > 127 else 0)
+        out.putalpha(ImageChops.subtract(out.getchannel("A"), gap))
     else:
         out.paste(CUP_RIM, (0, 0), mask)
         out.paste(CUP, (0, 0), inner)
         shadow = Image.new("RGBA", (big, big), (0, 0, 0, 0))
-        shadow.paste((0, 0, 0, 120), (0, int(big * 0.02)), die.getchannel("A"))
+        shadow.paste((0, 0, 0, 120), (0, int(big * 0.02)), die_layer.getchannel("A"))
         out.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(big * 0.012)))
-        out.alpha_composite(die)
+    out.alpha_composite(die_layer)
     return out.resize((size, size), Image.LANCZOS)
 
 
