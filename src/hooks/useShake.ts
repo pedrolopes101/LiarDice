@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { Accelerometer } from 'expo-sensors';
 
-/** Total acceleration (in g) that counts as a shake. Resting is ~1g. */
-const SHAKE_THRESHOLD = 1.8;
 /** Minimum time between two shake events, so one shake = one roll. */
 const COOLDOWN_MS = 1200;
 
-/** Calls `onShake` whenever the device is shaken. */
-export function useShake(onShake: () => void, enabled = true) {
+/**
+ * Calls `onShake` whenever the device is shaken harder than `threshold`
+ * (total acceleration in g; resting is ~1g).
+ */
+export function useShake(onShake: () => void, threshold: number, enabled = true) {
   const callback = useRef(onShake);
   callback.current = onShake;
 
@@ -24,7 +25,7 @@ export function useShake(onShake: () => void, enabled = true) {
       subscription = Accelerometer.addListener(({ x, y, z }) => {
         const force = Math.sqrt(x * x + y * y + z * z);
         const now = Date.now();
-        if (force > SHAKE_THRESHOLD && now - lastShake > COOLDOWN_MS) {
+        if (force > threshold && now - lastShake > COOLDOWN_MS) {
           lastShake = now;
           callback.current();
         }
@@ -35,5 +36,5 @@ export function useShake(onShake: () => void, enabled = true) {
       cancelled = true;
       subscription?.remove();
     };
-  }, [enabled]);
+  }, [enabled, threshold]);
 }
